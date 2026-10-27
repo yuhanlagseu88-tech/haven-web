@@ -22,7 +22,7 @@ body{color:#eee;background:#0f1923;overflow:hidden;touch-action:none;font-family
 </style><link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 </head>
-<body><script>window.GZ_PARTS={"index.pck":2};</script><script>window.GZ_SIZES={"index.wasm": 39514754, "index.pck": 126365040};window.GZ_CSIZE=134070655;</script><script>
+<body><script>window.GZ_PARTS={"index.pck":2};</script><script>window.GZ_SIZES={"index.wasm": 39514754, "index.pck": 126369604};window.GZ_CSIZE=134075147;</script><script>
 // HiDPI: Godot sizes the canvas to CSS size x devicePixelRatio (allow_hidpi); cap at 2 so 4K/3x screens stay fast.
 (function(){var r=window.devicePixelRatio||1; if(r>2){try{Object.defineProperty(window,'devicePixelRatio',{get:function(){return 2;}});}catch(e){}}})();
 // Web pointer lock must be requested inside a user-gesture handler; Godot sets Input.mouse_mode from its
@@ -86,10 +86,14 @@ window.fetch = async (url, opts) => {
 </script>
 <script src="index.js"></script>
 <script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":126365040,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":126369604,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const engine = new Engine(GODOT_CONFIG);
 window.godotReady = () => { window.__ready = 1; console.log('LOAD ready js_ms=' + Math.round(performance.now())); };
-window.godotStage = (t) => {};
+window.godotStage = (t, f) => { if (!done) { pct.textContent = t; target = Math.max(target, 85 + 12 * (f || 0)); } };
+window.godotMenu = () => { if (window.__menu) return; window.__menu = 1; done = true; fill.style.width = '100%';
+  console.log('LOAD menu js_ms=' + Math.round(performance.now()));
+  // fade out, then remove so nothing can sit over the canvas; give the canvas keyboard focus
+  load.classList.add('out'); setTimeout(() => { load.remove(); const c = document.getElementById('canvas'); if (c) c.focus(); }, 450); };
 const fill = document.getElementById('fill'), pct = document.getElementById('pct'), load = document.getElementById('load');
 const rate = document.getElementById('rate'), tipEl = document.getElementById('tip');
 const TIPS = ['Tip: walking is silent - running footsteps give your position away.', 'Tip: stop moving before you shoot for perfect accuracy.',
@@ -99,7 +103,7 @@ let ti = Math.floor(Math.random() * TIPS.length); tipEl.textContent = TIPS[ti];
 setInterval(() => { tipEl.style.opacity = 0; setTimeout(() => { ti = (ti + 1) % TIPS.length; tipEl.textContent = TIPS[ti]; tipEl.style.opacity = .7; }, 400); }, 4500);
 // smooth eased bar: the shown value glides toward the target (download = 0..85%, engine start = 85..100%)
 let target = 0, shown = 0, done = false; const t0 = performance.now(); let lb = 0, lt = t0, mbps = 0;
-(function anim(t) { shown += (target - shown) * 0.08; if (target >= 85 && !done) target = Math.min(97, target + 0.04);
+(function anim(t) { shown += (target - shown) * 0.08; if (target >= 85 && !done) target = Math.min(99, target + 0.01);
   fill.style.width = shown.toFixed(2) + '%';
   if (t - lt > 500) { const d = window.__bytes - lb; mbps = mbps ? mbps * 0.6 + 0.4 * d / ((t - lt) / 1000) / 1048576 : d / ((t - lt) / 1000) / 1048576; lb = window.__bytes; lt = t; }
   if (!done) requestAnimationFrame(anim); })(t0);
@@ -112,9 +116,8 @@ engine.startGame({onProgress: (c, t) => {
       const got = window.__bytes / 1048576; rate.textContent = window.__fromCache ? '' : (TOTAL_MB ? got.toFixed(0) + ' / ' + TOTAL_MB.toFixed(0) + ' MB' : got.toFixed(0) + ' MB') + (mbps > 0.05 ? '  \u00b7  ' + mbps.toFixed(1) + ' MB/s' : ''); }
     else { pct.textContent = 'Starting engine & building the map...'; rate.textContent = ''; }
   } }})
-  .then(() => { console.log('LOAD engine_started js_ms=' + Math.round(performance.now())); done = true; fill.style.width = '100%';
-    // menu is ready: fade the loader out; shaders keep compiling offscreen in the background
-    load.classList.add('out'); setTimeout(() => load.remove(), 500); },
+  .then(() => { console.log('LOAD engine_started js_ms=' + Math.round(performance.now()));
+    setTimeout(() => window.godotMenu(), 180000); },
     (e) => { done = true; pct.textContent = 'Error: ' + e; console.error(e); });
 </script></body></html>
 
