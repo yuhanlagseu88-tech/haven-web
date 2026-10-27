@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+<title>Haven Prototype (Valorant-style FPS)</title>
+<style>
+html,body,#canvas{margin:0;padding:0;border:0}
+body{color:#eee;background:#0f1923;overflow:hidden;touch-action:none;font-family:system-ui,sans-serif}
+#canvas{display:block}#canvas:focus{outline:none}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f1923;gap:14px}
+#load h1{margin:0;font-size:56px;letter-spacing:4px}#bar{width:min(480px,80vw);height:10px;background:#263440;border-radius:5px;overflow:hidden}
+#fill{height:100%;width:0;background:#ff4655;transition:width .15s}#pct{font-size:18px;opacity:.85}
+</style><link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+</head>
+<body><script>window.GZ_PARTS={"index.pck":2};</script><script>window.GZ_SIZES={"index.wasm": 39514754, "index.pck": 164304172};</script><script>
+// HiDPI: Godot sizes the canvas to CSS size x devicePixelRatio (allow_hidpi); cap at 2 so 4K/3x screens stay fast.
+(function(){var r=window.devicePixelRatio||1; if(r>2){try{Object.defineProperty(window,'devicePixelRatio',{get:function(){return 2;}});}catch(e){}}})();
+// Web pointer lock must be requested inside a user-gesture handler; Godot sets Input.mouse_mode from its
+// main loop (outside the gesture), so the browser refuses it. Godot flips window.godotWantLock and this
+// handler requests the lock on the next real click/mousedown on the canvas.
+window.godotWantLock=false; window.godotLockLost=0;
+function _cv(){return document.getElementById('canvas');}
+function _resumeTip(on){var t=document.getElementById('resume');if(t)t.style.display=on?'flex':'none';}
+function _reqLock(){var c=_cv(); if(!c||document.pointerLockElement===c)return;
+ try{var p=c.requestPointerLock({unadjustedMovement:true});
+  if(p&&p.catch)p.catch(function(){try{var q=c.requestPointerLock();if(q&&q.catch)q.catch(function(){_resumeTip(true);});}catch(e){_resumeTip(true);}});}
+ catch(e){try{c.requestPointerLock();}catch(e2){_resumeTip(true);}}}
+// Called by Godot (Cfg.set_capture): try now (works while the click's transient activation lasts); if the
+// browser refuses (e.g. right after ESC released it) show "click to resume" and retry on the next mousedown.
+window.godotLock=function(on){window.godotWantLock=on; if(on){_reqLock(); setTimeout(function(){if(window.godotWantLock&&document.pointerLockElement!==_cv())_resumeTip(true);},400);}
+ else{_resumeTip(false); if(document.pointerLockElement&&document.exitPointerLock)document.exitPointerLock();}};
+document.addEventListener('mousedown',function(){if(window.godotWantLock)_reqLock();},true);
+document.addEventListener('pointerlockchange',function(){if(document.pointerLockElement){_resumeTip(false);}else if(window.godotWantLock){window.godotLockLost++;}});
+</script><canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+<div id="resume" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;color:#fff;font:600 28px sans-serif;background:rgba(0,0,0,.35);cursor:pointer;z-index:5">CLICK TO RESUME</div>
+<div id="load"><h1>HAVEN</h1><div id="bar"><div id="fill"></div></div><div id="pct">Loading 0%</div></div>
+<script>
+// The static host sends no Content-Encoding: fetch pre-gzipped .wasm/.pck and inflate in the browser.
+// GZ_SIZES (uncompressed bytes, for the progress bar) is injected by tools/export_web.sh.
+const GZ = window.GZ_SIZES || {};
+const _fetch = window.fetch.bind(window); window.__rf = _fetch;
+window.fetch = async (url, opts) => {
+  const u = String(url instanceof Request ? url.url : url); const name = u.split('/').pop().split('?')[0];
+  if (GZ[name] && typeof DecompressionStream !== 'undefined') {
+    const np = (window.GZ_PARTS || {})[name];
+    // hosts with a per-file limit (GitHub Pages: 100 MB): the .gz is split into .gz.partN, streamed back in order
+    const r = np ? new Response(new ReadableStream({async start(c) { for (let i = 0; i < np; i++) {
+        const pr = await _fetch(u + '.gz.part' + i, opts); if (!pr.ok) { c.error(new Error('part ' + i + ' ' + pr.status)); return; }
+        const rd = pr.body.getReader(); for (;;) { const x = await rd.read(); if (x.done) break; c.enqueue(x.value); } } c.close(); }}), {status: 200})
+      : await _fetch(u + '.gz', opts);
+    if (r.ok) return new Response(r.body.pipeThrough(new DecompressionStream('gzip')), {status: 200, headers: {
+      'Content-Type': name.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream', 'Content-Length': String(GZ[name])}});
+  }
+  return _fetch(url, opts);
+};
+</script>
+<script src="index.js"></script>
+<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":164304172,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const engine = new Engine(GODOT_CONFIG);
+// Godot calls godotReady() once the load-time shader prewarm is done; the loading screen stays up until then.
+window.godotReady = () => { window.__ready = 1; console.log('LOAD ready js_ms=' + Math.round(performance.now())); const l = document.getElementById('load'); if (l) l.remove(); };
+window.godotStage = (t) => { const e = document.getElementById('pct'); if (e) e.textContent = t; };
+const fill = document.getElementById('fill'), pct = document.getElementById('pct'), load = document.getElementById('load');
+engine.startGame({onProgress: (c, t) => { if (t > 0 && c >= t && !window.__dl) { window.__dl = performance.now(); console.log('LOAD download_done js_ms=' + Math.round(window.__dl)); } if (t > 0) { const p = Math.min(100, Math.floor(c * 100 / t)); fill.style.width = p + '%'; pct.textContent = 'Loading ' + p + '%'; } }})
+  .then(() => { console.log('LOAD engine_started js_ms=' + Math.round(performance.now())); pct.textContent = 'Preparing shaders...'; fill.style.width = '100%'; if (window.__ready) load.remove(); else setTimeout(() => load.remove(), 30000); }, (e) => { pct.textContent = 'Error: ' + e; console.error(e); });
+</script></body></html>
+
